@@ -1,16 +1,16 @@
 package mw.panel
 
+import mw.tchoo
 import mw.hetero.{::, CSV, HNil}
-import mw.tchoo.{Accessory, Ecos, Sensor}
 
-case class Panel(ecos: Ecos, name: String) {
+case class Panel(ecos: tchoo.Ecos, name: String) {
 	private var colors = Map.empty[Range, Color]
 	// Leds
 	for (names :: pin :: HNil <-
 		     CSV.read[(String, String, String) :: Int :: HNil](s"$name/leds.csv")) {
-		val accessory = Accessory(ecos, names)
+		val accessory = tchoo.Accessory(ecos, names)
 		val led = Led(pin, accessory)
-		led.state.onData { state =>
+		for (state <- led.state) {
 			this (led) = state
 		}
 	}
@@ -18,9 +18,21 @@ case class Panel(ecos: Ecos, name: String) {
 	for (oid :: port :: from :: to :: HNil <-
 		     CSV.read[Int :: Int :: Int :: Int :: HNil](s"$name/blocs.csv")) {
 		val range = Range(from, to)
-		val sensor = Sensor(ecos, oid, port)
+		val sensor = tchoo.Sensor(ecos, oid, port)
 		val bloc = Bloc(range, sensor)
-		bloc.state.onData { state =>
+		for (state <- bloc.state) {
+			this (range) = state.color
+		}
+	}
+	// Routes
+	for (names :: ranges :: HNil <-
+		     CSV.read[(String, String, String) :: List[Range] :: HNil](s"$name/routes.csv")) {
+		val ecosRoute = tchoo.Route(ecos, names)
+		val route = Route(ranges, ecosRoute)
+		for {
+			state <- route.state
+			range <- ranges
+		} {
 			this (range) = state.color
 		}
 	}

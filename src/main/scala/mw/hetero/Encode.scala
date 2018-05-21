@@ -59,7 +59,10 @@ object Encode {
 	implicit def hList[H, T <: HList](implicit headEncode: Encode[H], tailEncode: Encode[T]): Encode[H :: T] = {
 		case (head :: tail, rest) => headEncode(head, tailEncode(tail, rest))
 	}
-	implicit val hNil: Encode[HNil] = {
-		case (_, rest) => rest
+	implicit val hNil: Encode[HNil] = { (_, rest) =>
+		rest
+	}
+	implicit val range: Encode[Range] = { (data, encoded) =>
+		data.start.toString :: data.end.toString :: encoded
 	}
 }

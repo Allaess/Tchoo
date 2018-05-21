@@ -8,7 +8,7 @@ trait Route {
 	override def toString = s"Route(state=$state,switching=$switching)"
 }
 object Route {
-	val managerRequest = Accessory.managerRequest
+	val managerRequest: Request = Accessory.managerRequest
 	private var routes = Map.empty[(Ecos, (String, String, String)), Route]
 	def apply(ecos: Ecos, names: (String, String, String)): Route = routes.get(ecos, names) match {
 		case Some(route) => route
