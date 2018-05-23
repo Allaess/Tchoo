@@ -15,37 +15,37 @@ object Loco {
 		case Some(loco) => loco
 		case None =>
 			val loco = new Loco {
-				def request = for {
-					entries <- ecos.entries(managerRequest, "addr", "objectclass")
+				val oid = for {
+					entries <- ecos.reply(managerRequest)
 					entry <- entries
 					"loco" <- entry.get[String]("objectclass")
 					addr <- entry.get[Int]("addr") if addr == address
 				} yield {
-					Request(s"get(${entry.oid},name,speed,dir)")
+					entry.oid
 				}
-				val name = for {
-					request <- request
-					entries <- ecos.entries(request, "name")
-					entry <- entries
-					value <- entry.get[String]("name")
-				} yield {
-					value
-				}
-				val speed = for {
-					request <- request
-					entries <- ecos.entries(request, "speed")
-					entry <- entries
-					value <- entry.get[Int]("speed")
-				} yield {
-					value
-				}
-				val direction = for {
-					request <- request
-					entries <- ecos.entries(request, "dir")
-					entry <- entries
-					value <- entry.get[Int]("dir")
-				} yield {
-					value != 0
+				val name = {
+					for (oid <- oid) yield {
+						for (value <- ecos.value[String](oid, "name")) yield {
+							value
+						}
+					}
+				}.switch
+				val speed = {
+					for (oid <- oid) yield {
+						for (value <- ecos.value[Int](oid, "speed")) yield {
+							value
+						}
+					}
+				}.switch
+				val direction = {
+					for (oid <- oid) yield {
+						for (value <- ecos.value[Int](oid, "dir")) yield {
+							value != 0
+						}
+					}
+				}.switch
+				for (oid <- oid) {
+					ecos.send(s"get($oid,name,speed,dir)")
 				}
 			}
 			locos += (ecos, address) -> loco

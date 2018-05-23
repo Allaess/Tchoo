@@ -12,17 +12,12 @@ object Module {
 	def apply(ecos: Ecos, oid: Int): Module = modules.get(ecos, oid) match {
 		case Some(module) => module
 		case None =>
-			val request = Request(s"get($oid,state,railcom)")
 			val module = new Module {
-				val state = for {
-					entries <- ecos.entries(request, "state")
-					entry <- entries
-					value <- entry.get[String]("state")
-				} yield {
+				val state = for (value <- ecos.value[String](oid, "state")) yield {
 					value.drop(2).fromHex
 				}
 				val railcom = for {
-					entries <- ecos.entries(request, "railcom")
+					entries <- ecos.entries(oid, "railcom")
 				} yield {
 					val list = for {
 						entry <- entries
@@ -32,6 +27,7 @@ object Module {
 					}
 					list.toMap
 				}
+				ecos.send(s"get($oid,state,railcom)")
 			}
 			modules += (ecos, oid) -> module
 			module

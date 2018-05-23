@@ -3,6 +3,7 @@ package mw.tchoo
 import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter}
 import java.net.Socket
 
+import mw.hetero.Decode
 import mw.react.{EventSource, Reactive}
 
 import scala.util.{Failure, Success, Try}
@@ -33,36 +34,43 @@ class Ecos(name: String, port: Int) {
 		case Message(_, _, code, message) if code != 0 => System.err.println(s"Error $code: $message")
 		case _ =>
 	}
-	private var ecosObjects = Map.empty[Int, Reactive[List[Entry]]]
-	private def ecosObject(request: Request): Reactive[List[Entry]] = {
-		val OID = request.oid
-		ecosObjects.get(OID) match {
-			case Some(react) => react
-			case None =>
-				val react = for (Message(OID, entries, 0, _) <- messages) yield {
-					entries
-				}
-				ecosObjects += OID -> react
-				send(s"request($OID,view)")
-				send(request)
-				react
-		}
+	private var replies = Map.empty[Request, Reactive[List[Entry]]]
+	def reply(REQUEST: Request): Reactive[List[Entry]] = replies.get(REQUEST) match {
+		case Some(react) => react
+		case None =>
+			val react = for {
+				Reply(REQUEST, entries, 0, _) <- messages
+			} yield {
+				entries
+			}
+			replies += REQUEST -> react
+			react
 	}
-	private var byNames = Map.empty[(Int, Set[String]), Reactive[List[Entry]]]
-	def entries(request: Request, names: String*): Reactive[List[Entry]] = {
-		val oid = request.oid
-		val namesSet = names.toSet
-		byNames.get(oid, namesSet) match {
-			case Some(react) => react
-			case None =>
-				val react = for (list <- ecosObject(request)) yield {
-					for (entry <- list if entry.has(names: _*)) yield {
-						entry
-					}
+	private var entries = Map.empty[(Int, String), Reactive[List[Entry]]]
+	def entries(OID: Int, NAME: String): Reactive[List[Entry]] = entries.get(OID, NAME) match {
+		case Some(react) => react
+		case None =>
+			val react = for (Message(OID, entries, 0, _) <- messages) yield {
+				for (entry <- entries if entry.has(NAME)) yield {
+					entry
 				}
-				byNames += (oid, namesSet) -> react
-				react
-		}
+			}
+			entries += (OID, NAME) -> react
+			react
+	}
+	private var values = Map.empty[(Int, String), Reactive[Any]]
+	def value[T](OID: Int, NAME: String)(implicit decode: Decode[T]): Reactive[T] = values.get(OID, NAME) match {
+		case Some(react) => react.asInstanceOf[Reactive[T]]
+		case None =>
+			val react = for {
+				Message(OID, entries, 0, _) <- messages
+				Entry(OID, args) <- entries
+				Argument(NAME, values) <- args
+			} yield {
+				Decode[T](values)
+			}
+			values += (OID, NAME) -> react
+			react
 	}
 	def run(): Unit = {
 		var line = input.readLine

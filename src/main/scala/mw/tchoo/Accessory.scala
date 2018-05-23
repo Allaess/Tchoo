@@ -15,42 +15,42 @@ object Accessory {
 		case Some(accessory) => accessory
 		case None =>
 			val accessory = new Accessory {
-				val request: Reactive[Request] = for {
-					entries <- ecos.entries(managerRequest, "name1", "name2", "name3", "objectclass")
+				val oid: Reactive[Int] = for {
+					entries <- ecos.reply(managerRequest)
 					entry <- entries
 					"accessory" <- entry.get[String]("objectclass")
 					name1 <- entry.get[String]("name1") if name1 == names._1
 					name2 <- entry.get[String]("name2") if name2 == names._2
 					name3 <- entry.get[String]("name3") if name3 == names._3
 				} yield {
-					Request(s"get(${entry.oid},state,position,switching)")
+					entry.oid
 				}
-				val state: Reactive[Int] = for {
-					request <- request
-					entries <- ecos.entries(request, "state")
-					entry <- entries
-					value <- entry.get[Int]("state")
-				} yield {
-					value
-				}
-				val valid: Reactive[Boolean] = for {
-					request <- request
-					entries <- ecos.entries(request, "position")
-					entry <- entries
-					value <- entry.get[String]("position")
-				} yield {
-					value match {
-						case "ok" => true
-						case "wrong" => false
+				val state: Reactive[Int] = {
+					for (oid <- oid) yield {
+						for (value <- ecos.value[Int](oid, "state")) yield {
+							value
+						}
 					}
-				}
-				val switching: Reactive[Boolean] = for {
-					request <- request
-					entries <- ecos.entries(request, "switching")
-					entry <- entries
-					value <- entry.get[Int]("switching")
-				} yield {
-					value != 0
+				}.switch
+				val valid: Reactive[Boolean] = {
+					for (oid <- oid) yield {
+						for (value <- ecos.value[String](oid, "position")) yield {
+							value match {
+								case "ok" => true
+								case "wrong" => false
+							}
+						}
+					}
+				}.switch
+				val switching: Reactive[Boolean] = {
+					for (oid <- oid) yield {
+						for (value <- ecos.value[Int](oid, "switching")) yield {
+							value != 0
+						}
+					}
+				}.switch
+				for (oid <- oid) {
+					ecos.send(s"get($oid,state,position,switching)")
 				}
 			}
 			accessories += (ecos, names) -> accessory
