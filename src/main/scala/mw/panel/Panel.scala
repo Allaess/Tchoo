@@ -15,18 +15,19 @@ case class Panel(ecos: tchoo.Ecos, name: String) {
 		}
 	}
 	// Blocs
-	for (oid :: port :: from :: to :: HNil <-
-		     CSV.read[Int :: Int :: Int :: Int :: HNil](s"$name/blocs.csv")) {
+	for (name :: oid :: port :: from :: to :: HNil <-
+		     CSV.read[String :: Int :: Int :: Int :: Int :: HNil](s"$name/blocs.csv")) {
 		val range = Range(from, to)
 		val sensor = tchoo.Sensor(ecos, oid, port)
-		val bloc = Bloc(range, sensor)
+		val bloc = Bloc(name, range, sensor)
 		for (state <- bloc.state) {
 			this (range) = state.color
 		}
 	}
 	// Routes
-	for (names :: ranges :: HNil <-
-		     CSV.read[(String, String, String) :: List[Range] :: HNil](s"$name/routes.csv")) {
+	for (entry :: entrySide :: exit :: exitSide :: names :: ranges :: HNil <-
+		     CSV.read[String :: String :: String :: String :: (String, String, String) :: List[Range] :: HNil]
+			     (s"$name/routes.csv")) {
 		val ecosRoute = tchoo.Route(ecos, names)
 		val route = Route(ranges, ecosRoute)
 		for {

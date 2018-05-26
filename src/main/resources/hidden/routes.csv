@@ -1,2 +1,2 @@
-Name1 ;Name2 ;Name3;From;To
-Parade;Entrée;Basse;10  ;12
+Entry Bloc Name         ;Side;Exit Bloc Name    ;Side ;Name1 ;Name2 ;Name3;From;To
+Entrée Basse Gare Cachée;exit;Entrée Gare Cachée;entry;Parade;Entrée;Basse;10  ;12
