@@ -26,7 +26,7 @@ object Module {
 						if (address == 0) map - pair._1
 						else map + pair
 					}
-				}
+				}.debounce
 			}
 			modules += (ecos, oid) -> module
 			module

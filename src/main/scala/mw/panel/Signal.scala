@@ -39,7 +39,7 @@ object Signal {
 					}
 				}
 			}.getOrElse(Reactive.singleton(Stop))
-		}.switch
+		}.switch.debounce
 		_state.onEvent { event =>
 			state.trigger(event)
 		}
