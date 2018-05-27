@@ -2,9 +2,6 @@ package mw.panel
 
 import mw.hetero.{Decode, DecodeException}
 import mw.panel.Bloc.State
-import mw.panel.Bloc.State.{Free, Occupied}
-import mw.panel.Route.State.Active
-import mw.panel.Signal.State.Stop
 import mw.react.{EventSource, Reactive}
 import mw.tchoo.Sensor
 
@@ -15,7 +12,7 @@ trait Bloc {
 	protected val exitSignal: Signal
 	private val entryRoutes = EventSource[Route]
 	private val exitRoutes = EventSource[Route]
-	protected def route(side: Side): Reactive[Route] = side match {
+	def route(side: Side): Reactive[Route] = side match {
 		case Entry => entryRoutes
 		case Exit => exitRoutes
 	}
@@ -52,44 +49,8 @@ object Bloc {
 				val state = for (state <- sensor.state) yield {
 					State(state)
 				}
-				val entrySignal: Signal = new Signal {
-					val state = nextSignalState(Entry)
-				}
-				val exitSignal: Signal = new Signal {
-					val state = nextSignalState(Exit)
-				}
-				private def route2state(side: Side): Reactive[(Route, Route.State)] = for {
-					route <- route(side)
-					state <- route.state
-				} yield {
-					route -> state
-				}
-				private def activeRoute(side: Side): Reactive[Option[Route]] = {
-					route2state(side).scan(Map.empty[Route, Route.State])(_ + _).map { map =>
-						val coll = map.collect {
-							case (route, Active) => route
-						}
-						if (coll.size == 1) Some(coll.head)
-						else None
-					}
-				}
-				private def nextSignalState(side: Side): Reactive[Signal.State] = {
-					activeRoute(side).map { option =>
-						option.map { route =>
-							val (nextBloc, nextSide) = route.other(this)
-							val nextSignal = nextBloc.signal(nextSide.other)
-							for {
-								blocState <- nextBloc.state
-								signalState <- nextSignal.state
-							} yield {
-								blocState match {
-									case Occupied => Stop
-									case Free => signalState.previous
-								}
-							}
-						}.getOrElse(Reactive.singleton(Stop))
-					}.switch
-				}
+				val entrySignal = Signal(this, Entry)
+				val exitSignal = Signal(this, Exit)
 			}
 			blocs += name -> bloc
 			bloc

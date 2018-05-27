@@ -109,6 +109,15 @@ trait Reactive[+T] {
 		}
 		//		override def toString = s"${super.toString} <- ($outer,$that)"
 	}
+	def debounce: Reactive[T] = new EventSource[T] {
+		private var lastEvent = Option.empty[Event[T]]
+		outer.onEvent { event =>
+			if (!lastEvent.contains(event)) {
+				lastEvent = Some(event)
+				trigger(event)
+			}
+		}
+	}
 }
 object Reactive {
 	val silent: Reactive[Nothing] = { _ =>
