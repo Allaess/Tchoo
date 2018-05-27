@@ -1,3 +1,3 @@
-Name                    ;OID;Port;From;To
-Entrée Basse Gare Cachée;200;0   ;0   ;10
-Entrée Gare Cachée      ;200;1   ;12  ;17
+Entry1     ;Entry2;Entry3  ;Name                    ;Exit1      ;Exit2 ;Exit3     ;OID;Port;From;To
+           ;      ;        ;Entrée Basse Gare Cachée;Parade     ;Bas   ;Feu Entrée;200;0   ;0   ;10
+Gare Cachée;Entrée;Feu Haut;Entrée Gare Cachée      ;Gare Cachée;Entrée;Feu Bas   ;200;1   ;12  ;17

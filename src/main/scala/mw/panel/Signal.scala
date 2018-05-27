@@ -9,17 +9,21 @@ trait Signal {
 }
 object Signal {
 	sealed trait State {
+		val value: Int
 		def previous: State
 	}
 	object State {
 		case object Stop extends State {
-			def previous = Warning
+			val value = 1
+			def previous: Warning.type = Warning
 		}
 		case object Go extends State {
-			def previous = Go
+			val value = 0
+			def previous: Go.type = Go
 		}
 		case object Warning extends State {
-			def previous = Go
+			val value = 2
+			def previous: Go.type = Go
 		}
 	}
 }

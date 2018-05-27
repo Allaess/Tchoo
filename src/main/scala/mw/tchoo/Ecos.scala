@@ -40,56 +40,35 @@ class Ecos(name: String, port: Int) {
 		oids += oid
 		send(s"request($oid,view)")
 	}
-	private var requests = Set.empty[Request]
-	private def ask(request: Request): Unit = if (!requests.contains(request)) {
-		requests += request
-		view(request.oid)
-		send(request)
-	}
-	private var replies = Map.empty[Request, Reactive[List[Entry]]]
-	def reply(REQUEST: Request): Reactive[List[Entry]] = replies.get(REQUEST) match {
+	private var _entries = Map.empty[Request, Reactive[Entry]]
+	def entries(request: Request): Reactive[Entry] = _entries.get(request) match {
 		case Some(react) => react
 		case None =>
+			val OID = request.oid
 			val react = for {
-				Reply(REQUEST, entries, 0, _) <- messages
+				Message(OID, entries, 0, _) <- messages
+				entry <- entries
 			} yield {
-				entries
+				entry
 			}
-			replies += REQUEST -> react
-			ask(REQUEST)
+			_entries += request -> react
+			view(request.oid)
+			send(request)
 			react
 	}
-	private var entries = Map.empty[(Int, String), Reactive[List[Entry]]]
-	def entries(request: Request, name: String): Reactive[List[Entry]] = {
-		val OID = request.oid
-		entries.get(OID, name) match {
-			case Some(react) => react
-			case None =>
-				val react = for (Message(OID, entries, 0, _) <- messages) yield {
-					for (entry <- entries if entry.has(name)) yield {
-						entry
-					}
-				}
-				entries += (OID, name) -> react
-				ask(request)
-				react
-		}
-	}
-	private var values = Map.empty[(Int, String), Reactive[Any]]
-	def value[T](request: Request, NAME: String)(implicit decode: Decode[T]): Reactive[T] = {
-		val OID = request.oid
-		values.get(OID, NAME) match {
+	private var _values = Map.empty[(Request, String), Reactive[Any]]
+	def values[T](request: Request, NAME: String)(implicit decode: Decode[T]): Reactive[T] = {
+		_values.get(request, NAME) match {
 			case Some(react) => react.asInstanceOf[Reactive[T]]
 			case None =>
+				val OID = request.oid
 				val react = for {
-					Message(OID, entries, 0, _) <- messages
-					Entry(OID, args) <- entries
+					Entry(OID, args) <- entries(request)
 					Argument(NAME, values) <- args
 				} yield {
 					Decode[T](values)
 				}
-				values += (OID, NAME) -> react
-				ask(request)
+				_values += (request, NAME) -> react
 				react
 		}
 	}

@@ -2,6 +2,7 @@ package mw.panel
 
 import mw.tchoo
 import mw.hetero.{::, CSV, HNil}
+import mw.tchoo.{Accessory, Sensor}
 
 case class Panel(ecos: tchoo.Ecos, name: String) {
 	private var colors = Map.empty[Range, Color]
@@ -15,13 +16,36 @@ case class Panel(ecos: tchoo.Ecos, name: String) {
 		}
 	}
 	// Blocs
-	for (name :: oid :: port :: from :: to :: HNil <-
-		     CSV.read[String :: Int :: Int :: Int :: Int :: HNil](s"$name/blocs.csv")) {
+	for (entryNames :: name :: exitNames :: oid :: port :: from :: to :: HNil <-
+		     CSV.read[(String, String, String) :: String :: (String, String, String)
+			     :: Int :: Int :: Int :: Int :: HNil](s"$name/blocs.csv")) {
 		val range = Range(from, to)
-		val sensor = tchoo.Sensor(ecos, oid, port)
-		val bloc = Bloc(name, range, sensor)
+		val sensor: Sensor = tchoo.Sensor(ecos, oid, port)
+		val entryAccessory: Option[Accessory] =
+			if (entryNames == ("", "", "")) None
+			else Some(Accessory(ecos, entryNames))
+		val exitAccessory: Option[Accessory] =
+			if (exitNames == ("", "", "")) None
+			else Some(Accessory(ecos, exitNames))
+		val bloc: Bloc = Bloc(name, range, sensor)
 		for (state <- bloc.state) {
 			this (range) = state.color
+		}
+		for {
+			accessory <- entryAccessory
+			oid <- accessory.oid
+			state <- bloc.signal(Entry).state
+		} {
+			val value = state.value
+			ecos.send(s"set($oid,state[$value])")
+		}
+		for {
+			accessory <- exitAccessory
+			oid <- accessory.oid
+			state <- bloc.signal(Exit).state
+		} {
+			val value = state.value
+			ecos.send(s"set($oid,state[$value])")
 		}
 	}
 	// Routes

@@ -9,44 +9,41 @@ trait Loco {
 	override def toString = s"Loco(name=$name,speed=$speed,direction=$direction)"
 }
 object Loco {
-	val managerRequest = Request("queryObjects(10,addr,objectclass)")
 	private var locos = Map.empty[(Ecos, Int), Loco]
-	def apply(ecos: Ecos, address: Int): Loco = locos.get(ecos, address) match {
+	def apply(ecos: Ecos, ADDRESS: Int): Loco = locos.get(ecos, ADDRESS) match {
 		case Some(loco) => loco
 		case None =>
 			val loco = new Loco {
 				val oid = for {
-					entries <- ecos.reply(managerRequest)
-					entry <- entries
+					entry@Entry(oid, _) <- ecos.entries(Request(s"queryObjects(10,addr,objectclass)"))
 					"loco" <- entry.get[String]("objectclass")
-					addr <- entry.get[Int]("addr") if addr == address
+					ADDRESS <- entry.get[Int]("addr")
 				} yield {
-					entry.oid
+					oid
 				}
-				private def request(oid: Int) = Request(s"get($oid,name,speed,dir)")
-				val name = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[String](request(oid), "name")) yield {
-							value
-						}
-					}
-				}.switch
-				val speed = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](request(oid), "speed")) yield {
-							value
-						}
-					}
-				}.switch
-				val direction = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](request(oid), "dir")) yield {
-							value != 0
-						}
-					}
-				}.switch
+				val request = for (oid <- oid) yield {
+					Request(s"get($oid,name,speed,dir)")
+				}
+				val name = for {
+					request <- request
+					value <- ecos.values[String](request, "name")
+				} yield {
+					value
+				}
+				val speed = for {
+					request <- request
+					value <- ecos.values[Int](request, "speed")
+				} yield {
+					value
+				}
+				val direction = for {
+					request <- request
+					value <- ecos.values[Int](request, "dir")
+				} yield {
+					value != 0
+				}
 			}
-			locos += (ecos, address) -> loco
+			locos += (ecos, ADDRESS) -> loco
 			loco
 	}
 }

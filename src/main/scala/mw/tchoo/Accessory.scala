@@ -3,6 +3,7 @@ package mw.tchoo
 import mw.react.Reactive
 
 trait Accessory {
+	val oid: Reactive[Int]
 	val state: Reactive[Int]
 	val valid: Reactive[Boolean]
 	val switching: Reactive[Boolean]
@@ -15,41 +16,39 @@ object Accessory {
 		case Some(accessory) => accessory
 		case None =>
 			val accessory = new Accessory {
-				val oid: Reactive[Int] = for {
-					entries <- ecos.reply(managerRequest)
-					entry <- entries
-					"accessory" <- entry.get[String]("objectclass")
+				val oid = for {
+					entry@Entry(oid, _) <- ecos.entries(Request(s"queryObjects(11,name1,name2,name3,objectclass)"))
 					name1 <- entry.get[String]("name1") if name1 == names._1
 					name2 <- entry.get[String]("name2") if name2 == names._2
 					name3 <- entry.get[String]("name3") if name3 == names._3
+					"accessory" <- entry.get[String]("objectclass")
 				} yield {
-					entry.oid
+					oid
 				}
-				private def request(oid: Int) = Request(s"get($oid,state,position,switching)")
-				val state: Reactive[Int] = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](request(oid), "state")) yield {
-							value
-						}
+				val request = for (oid <- oid) yield {
+					Request(s"get($oid,state,position,switching)")
+				}
+				val state = for {
+					request <- request
+					value <- ecos.values[Int](request, "state")
+				} yield {
+					value
+				}
+				val valid = for {
+					request <- request
+					value <- ecos.values[String](request, "position")
+				} yield {
+					value match {
+						case "ok" => true
+						case "wrong" => false
 					}
-				}.switch
-				val valid: Reactive[Boolean] = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[String](request(oid), "position")) yield {
-							value match {
-								case "ok" => true
-								case "wrong" => false
-							}
-						}
-					}
-				}.switch
-				val switching: Reactive[Boolean] = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](request(oid), "switching")) yield {
-							value != 0
-						}
-					}
-				}.switch
+				}
+				val switching = for {
+					request <- request
+					value <- ecos.values[Int](request, "switching")
+				} yield {
+					value != 0
+				}
 			}
 			accessories += (ecos, names) -> accessory
 			accessory

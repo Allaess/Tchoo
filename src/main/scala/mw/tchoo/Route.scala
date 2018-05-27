@@ -14,31 +14,27 @@ object Route {
 		case Some(route) => route
 		case None =>
 			val route = new Route {
-				val oid = for {
-					entries <- ecos.reply(managerRequest)
-					entry <- entries
-					"route" <- entry.get[String]("objectclass")
+				val request = for {
+					entry@Entry(oid, _) <- ecos.entries(Request(s"queryObjects(11,name1,name2,name3,objectclass)"))
 					name1 <- entry.get[String]("name1") if name1 == names._1
 					name2 <- entry.get[String]("name2") if name2 == names._2
 					name3 <- entry.get[String]("name3") if name3 == names._3
+					"route" <- entry.get[String]("objectclass")
 				} yield {
-					entry.oid
+					Request(s"get($oid,state,switching)")
 				}
-				private def request(oid: Int) = Request(s"get($oid,state,switching)")
-				val state = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](request(oid), "state")) yield {
-							value
-						}
-					}
-				}.switch
-				val switching = {
-					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](request(oid), "switching")) yield {
-							value != 0
-						}
-					}
-				}.switch
+				val state = for {
+					request <- request
+					value <- ecos.values[Int](request, "state")
+				} yield {
+					value
+				}
+				val switching = for {
+					request <- request
+					value <- ecos.values[Int](request, "switching")
+				} yield {
+					value != 0
+				}
 			}
 			routes += (ecos, names) -> route
 			route

@@ -13,20 +13,19 @@ object Module {
 		case Some(module) => module
 		case None =>
 			val module = new Module {
-				private val request = Request(s"get($oid,state,railcom)")
-				val state = for (value <- ecos.value[String](request, "state")) yield {
+				val request = Request(s"get($oid,state,railcom)")
+				val state = for (value <- ecos.values[String](request, "state")) yield {
 					value.drop(2).fromHex
 				}
-				val railcom = for {
-					entries <- ecos.entries(request, "railcom")
-				} yield {
-					val list = for {
-						entry <- entries
-						(port, address, orientation) <- entry.get[(Int, Int, Int)]("railcom") if address != 0
-					} yield {
+				val railcom = {
+					val pairs = for ((port, address, orientation) <- ecos.values[(Int, Int, Int)](request, "railcom")) yield {
 						port -> (address, orientation != 0)
 					}
-					list.toMap
+					pairs.scan(Map.empty[Int, (Int, Boolean)]) { (map, pair) =>
+						val address = pair._2._1
+						if (address == 0) map - pair._1
+						else map + pair
+					}
 				}
 			}
 			modules += (ecos, oid) -> module

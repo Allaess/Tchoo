@@ -9,7 +9,7 @@ trait Route {
 	val ranges: List[Range]
 	val state: Reactive[State]
 	def other(bloc: Bloc): (Bloc, Side)
-	override def toString = s"Route(ranges=$ranges,state=$state)"
+	override def toString = s"Route(state=$state)"
 }
 object Route {
 	def apply(entryBloc: Bloc, entrySide: Side, exitBloc: Bloc, exitSide: Side,
