@@ -23,30 +23,28 @@ object Loco {
 				} yield {
 					entry.oid
 				}
+				private def request(oid: Int) = Request(s"get($oid,name,speed,dir)")
 				val name = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[String](oid, "name")) yield {
+						for (value <- ecos.value[String](request(oid), "name")) yield {
 							value
 						}
 					}
 				}.switch
 				val speed = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](oid, "speed")) yield {
+						for (value <- ecos.value[Int](request(oid), "speed")) yield {
 							value
 						}
 					}
 				}.switch
 				val direction = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](oid, "dir")) yield {
+						for (value <- ecos.value[Int](request(oid), "dir")) yield {
 							value != 0
 						}
 					}
 				}.switch
-				for (oid <- oid) {
-					ecos.send(s"get($oid,name,speed,dir)")
-				}
 			}
 			locos += (ecos, address) -> loco
 			loco

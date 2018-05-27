@@ -13,11 +13,12 @@ object Module {
 		case Some(module) => module
 		case None =>
 			val module = new Module {
-				val state = for (value <- ecos.value[String](oid, "state")) yield {
+				private val request = Request(s"get($oid,state,railcom)")
+				val state = for (value <- ecos.value[String](request, "state")) yield {
 					value.drop(2).fromHex
 				}
 				val railcom = for {
-					entries <- ecos.entries(oid, "railcom")
+					entries <- ecos.entries(request, "railcom")
 				} yield {
 					val list = for {
 						entry <- entries
@@ -27,7 +28,6 @@ object Module {
 					}
 					list.toMap
 				}
-				ecos.send(s"get($oid,state,railcom)")
 			}
 			modules += (ecos, oid) -> module
 			module

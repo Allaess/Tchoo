@@ -16,7 +16,7 @@ object Sensor {
 			val sensor = new Sensor {
 				val module = Module(ecos, oid)
 				override val state = for (state <- module.state) yield {
-					(state & port) != 0
+					(state & (1 << port)) != 0
 				}
 				override val loco = for {
 					map <- module.railcom

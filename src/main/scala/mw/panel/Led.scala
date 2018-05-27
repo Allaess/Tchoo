@@ -12,7 +12,7 @@ object Led {
 	def apply(_pin: Int, accessory: Accessory): Led = new Led {
 		val pin = _pin
 		val state = for (state <- accessory.state) yield {
-			state != 0
+			state == 0
 		}
 	}
 }

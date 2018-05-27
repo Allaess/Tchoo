@@ -25,11 +25,11 @@ case class Panel(ecos: tchoo.Ecos, name: String) {
 		}
 	}
 	// Routes
-	for (entry :: entrySide :: exit :: exitSide :: names :: ranges :: HNil <-
-		     CSV.read[String :: String :: String :: String :: (String, String, String) :: List[Range] :: HNil]
+	for (entryBloc :: entrySide :: exitBloc :: exitSide :: names :: ranges :: HNil <-
+		     CSV.read[Bloc :: Side :: Bloc :: Side :: (String, String, String) :: List[Range] :: HNil]
 			     (s"$name/routes.csv")) {
 		val ecosRoute = tchoo.Route(ecos, names)
-		val route = Route(ranges, ecosRoute)
+		val route = Route(entryBloc, entrySide, exitBloc, exitSide, ecosRoute, ranges)
 		for {
 			state <- route.state
 			range <- ranges
@@ -43,12 +43,19 @@ case class Panel(ecos: tchoo.Ecos, name: String) {
 	def update(range: Range, color: Color): Unit = {
 		if (color == Color.empty) colors -= range
 		else colors += range -> color
-		for (index <- range) {
+		val list = for (index <- range) yield {
 			val cs = for ((r, c) <- colors if r.contains(index)) yield {
 				c
 			}
-			val c = (Color.empty /: cs) (_ | _)
-			println(s"c$index=${color.red},${color.green},${color.blue}")
+			index -> (Color.empty /: cs) (_ | _)
 		}
+		paint(list)
+	}
+	private def paint(list: Iterable[(Int, Color)]): Unit = if (list.nonEmpty) {
+		val (first, color) = list.head
+		val (taken, dropped) = list.span(_._2 == color)
+		val last = first + taken.size
+		println(s"c$first-$last=$color")
+		paint(dropped)
 	}
 }

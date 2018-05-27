@@ -17,9 +17,8 @@ class Ecos(name: String, port: Int) {
 	private val lines = strings.map { text =>
 		Try(Ecos.parseLine(text))
 	}
-	lines.onData {
-		case Failure(error) => error.printStackTrace()
-		case _ =>
+	for (Failure(error) <- lines) {
+		error.printStackTrace()
 	}
 	val messages: Reactive[Message] =
 		lines.scan(Option.empty[StartLine], List.empty[Entry], Option.empty[EndLine]) {
@@ -30,9 +29,22 @@ class Ecos(name: String, port: Int) {
 		}.collect {
 			case (Some(start), entries, Some(end)) => Message(start, entries.reverse, end)
 		}
-	messages.onData {
-		case Message(_, _, code, message) if code != 0 => System.err.println(s"Error $code: $message")
-		case _ =>
+	for {
+		Message(_, _, code, message) <- messages
+		if code != 0
+	} {
+		System.err.println(s"Error $code: $message")
+	}
+	private var oids = Set.empty[Int]
+	private def view(oid: Int): Unit = if (!oids.contains(oid)) {
+		oids += oid
+		send(s"request($oid,view)")
+	}
+	private var requests = Set.empty[Request]
+	private def ask(request: Request): Unit = if (!requests.contains(request)) {
+		requests += request
+		view(request.oid)
+		send(request)
 	}
 	private var replies = Map.empty[Request, Reactive[List[Entry]]]
 	def reply(REQUEST: Request): Reactive[List[Entry]] = replies.get(REQUEST) match {
@@ -44,33 +56,42 @@ class Ecos(name: String, port: Int) {
 				entries
 			}
 			replies += REQUEST -> react
+			ask(REQUEST)
 			react
 	}
 	private var entries = Map.empty[(Int, String), Reactive[List[Entry]]]
-	def entries(OID: Int, NAME: String): Reactive[List[Entry]] = entries.get(OID, NAME) match {
-		case Some(react) => react
-		case None =>
-			val react = for (Message(OID, entries, 0, _) <- messages) yield {
-				for (entry <- entries if entry.has(NAME)) yield {
-					entry
+	def entries(request: Request, name: String): Reactive[List[Entry]] = {
+		val OID = request.oid
+		entries.get(OID, name) match {
+			case Some(react) => react
+			case None =>
+				val react = for (Message(OID, entries, 0, _) <- messages) yield {
+					for (entry <- entries if entry.has(name)) yield {
+						entry
+					}
 				}
-			}
-			entries += (OID, NAME) -> react
-			react
+				entries += (OID, name) -> react
+				ask(request)
+				react
+		}
 	}
 	private var values = Map.empty[(Int, String), Reactive[Any]]
-	def value[T](OID: Int, NAME: String)(implicit decode: Decode[T]): Reactive[T] = values.get(OID, NAME) match {
-		case Some(react) => react.asInstanceOf[Reactive[T]]
-		case None =>
-			val react = for {
-				Message(OID, entries, 0, _) <- messages
-				Entry(OID, args) <- entries
-				Argument(NAME, values) <- args
-			} yield {
-				Decode[T](values)
-			}
-			values += (OID, NAME) -> react
-			react
+	def value[T](request: Request, NAME: String)(implicit decode: Decode[T]): Reactive[T] = {
+		val OID = request.oid
+		values.get(OID, NAME) match {
+			case Some(react) => react.asInstanceOf[Reactive[T]]
+			case None =>
+				val react = for {
+					Message(OID, entries, 0, _) <- messages
+					Entry(OID, args) <- entries
+					Argument(NAME, values) <- args
+				} yield {
+					Decode[T](values)
+				}
+				values += (OID, NAME) -> react
+				ask(request)
+				react
+		}
 	}
 	def run(): Unit = {
 		var line = input.readLine

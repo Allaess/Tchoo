@@ -25,16 +25,17 @@ object Accessory {
 				} yield {
 					entry.oid
 				}
+				private def request(oid: Int) = Request(s"get($oid,state,position,switching)")
 				val state: Reactive[Int] = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](oid, "state")) yield {
+						for (value <- ecos.value[Int](request(oid), "state")) yield {
 							value
 						}
 					}
 				}.switch
 				val valid: Reactive[Boolean] = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[String](oid, "position")) yield {
+						for (value <- ecos.value[String](request(oid), "position")) yield {
 							value match {
 								case "ok" => true
 								case "wrong" => false
@@ -44,14 +45,11 @@ object Accessory {
 				}.switch
 				val switching: Reactive[Boolean] = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](oid, "switching")) yield {
+						for (value <- ecos.value[Int](request(oid), "switching")) yield {
 							value != 0
 						}
 					}
 				}.switch
-				for (oid <- oid) {
-					ecos.send(s"get($oid,state,position,switching)")
-				}
 			}
 			accessories += (ecos, names) -> accessory
 			accessory

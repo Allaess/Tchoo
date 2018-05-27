@@ -1,7 +1,6 @@
 package mw.panel
 
 import mw.tchoo
-import mw.panel.Bloc.Side
 import mw.panel.Route.State
 import mw.panel.Route.State._
 import mw.react.Reactive
@@ -9,6 +8,8 @@ import mw.react.Reactive
 trait Route {
 	val ranges: List[Range]
 	val state: Reactive[State]
+	def other(bloc: Bloc): (Bloc, Side)
+	override def toString = s"Route(ranges=$ranges,state=$state)"
 }
 object Route {
 	def apply(entryBloc: Bloc, entrySide: Side, exitBloc: Bloc, exitSide: Side,
@@ -24,6 +25,11 @@ object Route {
 		}
 		entryBloc.routes(entrySide) += this
 		exitBloc.routes(exitSide) += this
+		def other(bloc: Bloc) = {
+			if (bloc == entryBloc) (exitBloc, exitSide)
+			else if (bloc == exitBloc) (entryBloc, entrySide)
+			else throw new Exception("Unknown bloc")
+		}
 	}
 	sealed trait State {
 		val color: Color

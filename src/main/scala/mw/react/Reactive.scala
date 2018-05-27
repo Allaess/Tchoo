@@ -26,7 +26,7 @@ trait Reactive[+T] {
 		outer.onEvent { event =>
 			trigger(event.map(f))
 		}
-//		override def toString = s"${super.toString} <- $outer"
+		//		override def toString = s"${super.toString} <- $outer"
 	}
 	def flatMap[S](f: T => Reactive[S]): Reactive[S] = new EventSource[S] {
 		private var count = 1
@@ -47,7 +47,7 @@ trait Reactive[+T] {
 			count -= 1
 			if (count == 0) super.close()
 		}
-//		override def toString = s"${super.toString} <- $outer"
+		//		override def toString = s"${super.toString} <- $outer"
 	}
 	def flatten[S](implicit id: T => Reactive[S]): Reactive[S] = flatMap(id)
 	def withFilter(p: T => Boolean): Reactive[T] = new EventSource[T] {
@@ -59,7 +59,7 @@ trait Reactive[+T] {
 			}
 			case event: Final => trigger(event)
 		}
-//		override def toString = s"${super.toString} <- $outer"
+		//		override def toString = s"${super.toString} <- $outer"
 	}
 	def foreach(action: T => Unit): Unit = onData { t =>
 		action(t)
@@ -91,7 +91,7 @@ trait Reactive[+T] {
 				outerClosed = true
 				if (innerClosed) close()
 		}
-//		override def toString = s"${super.toString} <- $outer"
+		//		override def toString = s"${super.toString} <- $outer"
 	}
 	def ++[S >: T](that: Reactive[S]): Reactive[S] = new EventSource[S] {
 		private var count = 2
@@ -107,7 +107,7 @@ trait Reactive[+T] {
 			count -= 1
 			if (count == 0) super.close()
 		}
-//		override def toString = s"${super.toString} <- ($outer,$that)"
+		//		override def toString = s"${super.toString} <- ($outer,$that)"
 	}
 }
 object Reactive {
@@ -115,6 +115,11 @@ object Reactive {
 		Registration.empty
 	}
 	def empty[T]: Reactive[T] = silent
+	def singleton[T](expr: => T): Reactive[T] = { action =>
+		action(Event(expr))
+		action(Closed)
+		Registration.empty
+	}
 	implicit def fromSeq[T](coll: Seq[T]): Reactive[T] = { action =>
 		for (elem <- coll) {
 			action(Data(elem))

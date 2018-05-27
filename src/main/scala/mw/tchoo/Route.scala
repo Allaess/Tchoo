@@ -24,23 +24,21 @@ object Route {
 				} yield {
 					entry.oid
 				}
+				private def request(oid: Int) = Request(s"get($oid,state,switching)")
 				val state = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](oid, "state")) yield {
+						for (value <- ecos.value[Int](request(oid), "state")) yield {
 							value
 						}
 					}
 				}.switch
 				val switching = {
 					for (oid <- oid) yield {
-						for (value <- ecos.value[Int](oid, "switching")) yield {
+						for (value <- ecos.value[Int](request(oid), "switching")) yield {
 							value != 0
 						}
 					}
 				}.switch
-				for (oid <- oid) {
-					ecos.send(s"get($oid,state,switching)")
-				}
 			}
 			routes += (ecos, names) -> route
 			route
