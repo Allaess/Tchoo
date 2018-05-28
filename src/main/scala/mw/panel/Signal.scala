@@ -5,15 +5,26 @@ import mw.panel.Route.State.Active
 import mw.panel.Signal.State
 import mw.panel.Signal.State.Stop
 import mw.react.{EventSource, Reactive}
+import mw.tchoo.Accessory
 
 trait Signal {
 	val state: Reactive[State]
 	override def toString = s"Signal(state=$state)"
 }
 object Signal {
-	def apply(bloc: Bloc, side: Side): Signal = new Signal {
-		val state = EventSource[State]
-		state() = Stop
+	def apply(bloc: Bloc, side: Side, button: Option[Accessory]): Signal = new Signal {
+		private val stateSource = EventSource[State]
+		stateSource() = Stop
+		val state = button match {
+			case Some(button) => for {
+				buttonState <- button.state
+				signalState <- stateSource
+			} yield {
+				if (buttonState != 0) Stop
+				else signalState
+			}
+			case None => stateSource
+		}
 		val pairs = for {
 			route <- bloc.route(side)
 			state <- route.state
@@ -41,7 +52,7 @@ object Signal {
 			}.getOrElse(Reactive.singleton(Stop))
 		}.switch.debounce
 		_state.onEvent { event =>
-			state.trigger(event)
+			stateSource.trigger(event)
 		}
 	}
 	sealed trait State {

@@ -3,7 +3,7 @@ package mw.panel
 import mw.hetero.{Decode, DecodeException}
 import mw.panel.Bloc.State
 import mw.react.{EventSource, Reactive}
-import mw.tchoo.Sensor
+import mw.tchoo.{Accessory, Sensor}
 
 trait Bloc {
 	val range: Range
@@ -41,7 +41,8 @@ object Bloc {
 	}
 	private var blocs = Map.empty[String, Bloc]
 	def apply(name: String): Bloc = blocs(name)
-	def apply(name: String, _range: Range, sensor: Sensor): Bloc = blocs.get(name) match {
+	def apply(name: String, _range: Range, entryButton: Option[Accessory],
+	          sensor: Sensor, exitButton: Option[Accessory]): Bloc = blocs.get(name) match {
 		case Some(bloc) => bloc
 		case None =>
 			val bloc = new Bloc {
@@ -49,8 +50,8 @@ object Bloc {
 				val state = for (state <- sensor.state) yield {
 					State(state)
 				}
-				val entrySignal = Signal(this, Entry)
-				val exitSignal = Signal(this, Exit)
+				val entrySignal = Signal(this, Entry, entryButton)
+				val exitSignal = Signal(this, Exit, exitButton)
 			}
 			blocs += name -> bloc
 			bloc
